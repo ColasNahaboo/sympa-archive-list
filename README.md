@@ -1,5 +1,5 @@
 # sympa-archive-list
-A script to move the old closed [SYMPA](http://sympa.org) mailing lists into offsite storage
+A script to move old [SYMPA](http://sympa.org) mailing lists into offsite storage. Bash script working on linux/unix servers.
 
 This script moves SYMPA mailing lists data that have been closed out of the SYMPA server, to free space.
 The lists are archived as a comoressed tar file (listname.tgz) of their `expl/listname` and `wwsarchive/listname@listdomains` directories. The date of the .tgz file is set to the date the list was closed, for easier reference.
@@ -35,3 +35,8 @@ Options:
 ## License
 (c) 2018 Colas Nahaboo, colas@nahaboo.net
 MIT License: Open source with no strings attached.
+
+## Caveats, Requirements
+*  Requires scp
+*  Only tested on Linux Debian
+
