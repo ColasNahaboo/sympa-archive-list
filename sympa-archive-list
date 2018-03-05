@@ -1,0 +1,87 @@
+#!/bin/bash
+USAGE="sympa-archive-list [options] [lists...]
+For closed lists, archives the lists data on a (remote) directory, and
+removes the list from the SYMPA server.
+The lists are archived as a .tgz file of their expl/listname and
+wwsarchive/listname@listdomains directories. The date of the .tgz file is set
+to the date the list was closed, for easier reference.
+
+Options:
+   -d D   destination: where to copy archives, used as a rsync destination
+          e.g: D can be a: dir, host:dir, login@host:dir ...
+          Mandatory. Can also be defined as a \"destination\" shell variable in
+          the config file /etc/sympa-archive-list.conf
+   -c C   reads also the C file as config after /etc/sympa-archive-list.conf
+   -a     archive all closed lists
+   -o N   for -a, archive only list closed for more than N (number) days
+   -s S   uses S for the sympa directory instead of /var/lib/sympa
+          this directory should contain the subdirectories expl and wwsarchive
+   -n     only create archive, do not remove the files from SYMPA
+   -l     only show lists that would be archived, but perfom no actual action
+   -v     verbose
+
+V 1.0. Project info at https://github.com/ColasNahaboo/sympa-archive-list
+"
+
+[ -r /etc/sympa-archive-list.conf ] && . /etc/sympa-archive-list.conf
+all=false
+dorm=true
+dols=false
+config=/etc/sympa-archive-list.conf
+dir=/var/lib/sympa
+olderthan=-100
+tmp=/tmp/sympa-archive-list.$$
+cleanup() { rm -rf "$tmp" "$tmp."*; }; trap cleanup 0
+
+V () { :;}; T () { :;}; v=false; E () { echo "$@";}; En () { echo -n "$@";}
+err () { echo "***ERROR: $*" >&2; exit 1; }
+W () { echo "###Warning: $*" >&2; }
+while test "_${1#-}" != "_$1" -a "_${1//-/}" != "_";do case "$1" in
+  -a) all=true;;
+  -o) olderthan="$2"; shift;;
+  -n) dorm=false;;
+  -l) dols=true;;
+  -c) . "$2"; shift;;
+  -d) destination="$2"; shift;;
+  -s) dir="$2"; shift;;
+  -v) V () { echo "== $*";}; v=true
+      T () { local i;En "==";for i in $*; do En " $i="`eval E '$'$i`;done;E;};;
+   *) echo "$USAGE"; exit 1;
+esac;shift; done; if test "_$1" = "_--";then shift; fi
+
+[ -n "$destination" ] || err "No destination specified, aborting"
+cd "$dir" || err "Cannot go in $dir"
+[ -d "$dir/expl" ] || err "Cannot find directory $dir/expl"
+[ -d "$dir/wwsarchive" ] || err "Cannot find directory $dir/wwsarchive"
+
+archive_list() {
+    local list="$1" archive=$(echo "wwsarchive/$list@"*)
+    [ -d "expl/$list" ] || err "Cannot find list directory $PWD/expl/$list"
+    egrep -qs '^[[:space:]]*status[[:space:]]+closed' "expl/$list/config" ||\
+	err "List $list is not closed!"
+    [[ $archive =~ [*] ]] && archive=
+    $dols && echo "$list" && return
+    tar cfz $tmp "expl/$list" $archive || err "creating $list archive"
+    if [ -e "expl/$list/subscribers.closed.dump" ]; then
+	touch -r "expl/$list/subscribers.closed.dump" $tmp
+    else
+	touch -r "expl/$list/config" $tmp
+    fi
+    V "Creating archive of list $list of size $((($(stat -c %s $tmp)+512) / 1024))k closed $(date -r $tmp -I)"
+    scp -qp $tmp "$destinations/$list.tgz" || err "copying $list archive"
+    $dorm && rm -rf "expl/$list" $archive
+}
+
+if $all; then
+    now=$(date +%s)
+    for i in $(egrep -l '^[[:space:]]*status[[:space:]]+closed' expl/*/config); do
+	date=$(date -r "$i" +%s)
+	if let 'date < (now - 24*3600 * olderthan)'; then
+	    list="${i%/*}"
+	    list="${list#*/}"
+	    archive_list "$list"
+	fi
+    done
+else
+    for list in "$@"; do archive_list "$list"; done
+fi
