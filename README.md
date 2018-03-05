@@ -26,11 +26,11 @@ Options:
 ```
 ## Quickstart
 1. Copy the `sympa-archive-list` somewhere on your SYMPA server. E.g. in `/usr/local/bin`
-2. Create a `/etc/sympa-archive-list.conf` and add a line in it telling where to copy archives:
+2. Create a `/etc/sympa-archive-list.conf` and add a line in it telling where to copy archives:  
    `destination=user@host:/path/to/archives`
 3. Test it works by a `sympa-archive-list -l -a`
-4. Add it to the root corntab to run daily. E.g, to archive all lists closed for more than a month:
-   `01 01 * * * /usr/local/bin/sympa-archive-list -a -o 31`
+4. Add it to the root crontab to run daily. E.g, to archive all lists closed for more than a month:  
+  `01 01 * * * /usr/local/bin/sympa-archive-list -a -o 31`  
    
 ## License
 (c) 2018 Colas Nahaboo, colas@nahaboo.net
