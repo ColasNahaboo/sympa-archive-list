@@ -3,7 +3,7 @@ A script to move old [SYMPA](http://sympa.org) mailing lists into offsite storag
 
 This script moves SYMPA mailing lists data that have been closed out of the SYMPA server, to free space.
 The lists are archived as a compressed tar file (listname.tgz) of their `expl/listname` and `wwsarchive/listname@listdomains` directories. The date of the .tgz file is set to the date the list was closed, for easier reference.
-Archives can be restored later by uncopressing the .tgz file in the sympa directory (E.g. `/var/lib/sympa`), and re-activating them via the sympa admin web interface.
+Archives can be restored later by uncompressing the .tgz file in the sympa directory (E.g. `/var/lib/sympa`), and re-activating them via the sympa admin web interface.
 
 ## Usage
 ```sympa-archive-list [options] [lists...]
