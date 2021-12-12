@@ -1,0 +1,91 @@
+#!/bin/bash
+set -a
+VERSION=1.0
+shopt -s nullglob
+USAGE="${0##*/}"' [options] arguments ...
+reads a config file (default: /etc/sympa-archives-expire) and removes old 
+archives for the listed SYMPA mailing lists.
+See http://colas.nahaboo.net/Software/SympaArchiveExpire
+
+The file should list the SYMPA mailing list archives to expire after N months
+in the form:
+  listname@hostname N
+N is optional (default 1) and mean the number of full month archives to keep
+  e.g. if N=2, the current month and the full two months before will be
+  kept, older ones will be deleted
+lists not listed in this file never expire
+empty lines and lines beginning with # are ignored
+
+The file should be run under the sympa account, once a day
+
+Options:
+  -c FILE   Uses FILE instead of /etc/sympa-archives-expire
+  -d DIR    Sympa installation dir, defaults to /home/sympa
+  -n        Do not perform cleanups, just list what it would have done
+
+'"Version: $VERSION"
+
+listfile=/etc/sympa-archives-expire
+DIR=/home/sympa
+real=true
+
+# Options processing
+while test "_${1#-}" != "_$1" -a "_${1//-/}" != "_";do case "$1" in
+  -c) listfile="$2"; shift;;
+  -d) DIR="$2"; shift;;
+  -n) real=false;;
+  *) echo "$USAGE"; exit 1;
+esac;shift; done; if test "_$1" = "_--";then shift; fi
+
+
+# we calculate dates in months since AD: 
+# year with 0 appended in base 12 + month
+# d2m 2008-07 => 41575
+d2m () { let m="(12#${1%%-*}0)+10#${1#*-}"; echo $m; }
+nowd=`date +%Y-%m`
+now=`d2m $nowd`
+
+# $1=listname $2=dir/file name
+mark_to_rebuild () {
+  if $real
+    then rm -rf "$2"
+    else trace "To remove: in $1, $2"
+  fi
+  >"/tmp/sympa-archives-expire.rebuild.$1"
+}
+
+err () { echo "***ERROR: $*" >&2; exit 1; }
+warn () { echo "===WARN: $*" >&2; }
+trace () { echo "$*" >&2; }
+
+if test ! -e $listfile; then err "Config file $listfile not found"; fi
+
+egrep -v '^[ 	]*(#|$)' <$listfile | while read list months; do
+  let months="${months:-1}"
+
+  if cd "$DIR/arc/$list" 2>/dev/null; then
+    for i in [0-9]*; do
+      m=`d2m $i`; let diff=now-m
+      if let 'diff>months'; then mark_to_rebuild "$list" $i; fi
+    done
+  else warn "Directory not found: $DIR/$list"
+  fi
+
+  if cd "$DIR/expl/${list%@*}/archives" 2>/dev/null; then
+    for i in log.[0-9]*; do
+      ym=${i#log.}; m=`d2m ${ym%??}-${ym#????}`; let diff=now-m
+      if let 'diff>months'; then mark_to_rebuild "$list" $i; fi
+    done
+  else warn "Directory not found: $DIR/expl/${list%@*}/archives"
+  fi
+
+done 
+
+# tell sympa to rebuild the touched lists
+for i in /tmp/sympa-archives-expire.rebuild.*; do
+  if $real
+  then >"/home/sympa/spool/outgoing/${i#/tmp/sympa-archives-expire}"
+  else trace "To rebuild: ${i#/tmp/sympa-archives-expire}"
+  fi
+  rm -f "$i"
+done

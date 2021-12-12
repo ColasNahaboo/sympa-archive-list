@@ -30,8 +30,8 @@ Options:
    `destination=user@host:/path/to/archives`
 3. Test it works by a `sympa-archive-list -l -a`
 4. Add it to the root crontab to run daily. E.g, to archive all lists closed for more than a month:  
-  `01 01 * * * /usr/local/bin/sympa-archive-list -a -o 31`  
-   
+    `01 01 * * * /usr/local/bin/sympa-archive-list -a -o 31`  
+
 ## License
 (c) 2018 Colas Nahaboo, colas@nahaboo.net
 MIT License: Open source with no strings attached.
@@ -40,3 +40,38 @@ MIT License: Open source with no strings attached.
 *  Requires scp
 *  Only tested on Linux Debian
 
+## Legacy: sympa-archives-expire
+
+I also include here the previous incarnation (published on 2009-03-14 at https://colas.nahaboo.net/Code/SympaArchiveExpire) of this script, `sympa-archives-expire` for reference. Its use is not recommended since it has not been used in versions of SYMPA more recent than the v3.
+
+`sympa-archives-expire` is a bash script to remove [SYMPA](http://www.sympa.org/) mailing lists old archives based on expiration dates. SYMPA is a very  nice mailing list system, which provide nice web archives by using [MHonarc](http://www.mhonarc.org/). To keep things manageable, it actually sets up a separate MHonarc  repository per month. SYMPA provides a way to make subscribers expire,  but nothing is none for the archives. This is not a problem in general,  as emails consume little space, but can be problematic for lists used to send a lot of attachments (think of MS Office documents like  powerpoints), or automated build or test reports or big logs.
+
+
+
+This script has a granularity of one month: it can only remove one month at a time. It works by being run daily under the `sympa` login in a crontab (e.g.: `01 01 * * * /usr/local/bin/sympa-archives-expire` ), without arguments. By default it do not expire lists, it just reads the file `/etc/sympa-archives-expire` to find the name of archives to expire, one per line, optionally  followed by the number of full months to keep. Full usage is obtained by ruinning it with the argument `-?` :
+
+
+
+```
+# sympa-archives-expire -?
+sympa-archives-expire [options] arguments ...
+reads a config file (default: /etc/sympa-archives-expire) and removes old 
+archives for the listed SYMPA mailing lists.
+See https://%HTTP_HOST%/Code/SympaArchiveExpire
+
+The file should list the SYMPA mailing list archives to expire after N months
+in the form:
+  listname@hostname N
+N is optional (default 1) and mean the number of full month archives to keep
+  e.g. if N=2, the current month and the full two months before will be
+  kept, older ones will be deleted
+lists not listed in this file never expire
+empty lines and lines beginning with # are ignored
+
+The file should be run under the sympa account, once a day
+
+Options:
+  -c FILE   Uses FILE instead of /etc/sympa-archives-expire
+  -d DIR    Sympa installation dir, defaults to /home/sympa
+  -n        Do not perform cleanups, just list what it would have done
+```
